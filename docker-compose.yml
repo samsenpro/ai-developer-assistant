@@ -1,0 +1,86 @@
+name: ai-developer-assistant
+
+# Uso:
+#   docker compose up --build                     API + PostgreSQL con un proveedor externo (AI_* en .env)
+#   docker compose --profile ollama up --build    además un LLM local (Ollama) sin API key ni coste
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ai_assistant
+      POSTGRES_USER: ai_assistant
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required (see .env.example)}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_assistant -d ai_assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  ai-developer-assistant:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Solo con el perfil ollama: espera a que el modelo esté descargado
+      ollama-model:
+        condition: service_completed_successfully
+        required: false
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/ai_assistant
+      DB_USERNAME: ai_assistant
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (see .env.example)}
+      # Proveedor LLM (compatible con la API de OpenAI). Por defecto, el Ollama del perfil "ollama"
+      AI_PROVIDER_NAME: ${AI_PROVIDER_NAME:-ollama}
+      AI_BASE_URL: ${AI_BASE_URL:-http://ollama:11434}
+      AI_MODEL: ${AI_MODEL:-qwen2.5-coder:3b}
+      # Ollama no usa API key, pero el cliente exige un valor
+      AI_API_KEY: ${AI_API_KEY:-not-needed-for-ollama}
+      AI_TIMEOUT: ${AI_TIMEOUT:-180s}
+      AI_JSON_MODE: ${AI_JSON_MODE:-true}
+      AI_CACHE_TTL: ${AI_CACHE_TTL:-7d}
+      AI_DAILY_TOKENS_PER_USER: ${AI_DAILY_TOKENS_PER_USER:-200000}
+      AI_DAILY_REQUESTS_PER_USER: ${AI_DAILY_REQUESTS_PER_USER:-300}
+      FILE_MAX_SIZE: ${FILE_MAX_SIZE:-100KB}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-true}
+    ports:
+      - "${APP_PORT:-8095}:8080"
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.34.3
+    profiles: ["ollama"]
+    environment:
+      # Ventana de contexto suficiente para prompt + respuesta (el valor por defecto es menor y un
+      # modelo pequeño en modo JSON puede agotarla)
+      OLLAMA_CONTEXT_LENGTH: "16384"
+      OLLAMA_KEEP_ALIVE: "30m"
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Descarga el modelo una sola vez (queda en el volumen ollama-data) y termina
+  ollama-model:
+    image: ollama/ollama:0.34.3
+    profiles: ["ollama"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["ollama", "pull", "${AI_MODEL:-qwen2.5-coder:3b}"]
+    restart: "no"
+
+volumes:
+  postgres-data:
+  ollama-data:
