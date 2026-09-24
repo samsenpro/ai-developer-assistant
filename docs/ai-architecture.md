@@ -106,7 +106,7 @@ public interface AIProvider {
 ```
 
 - Los controllers y servicios no conocen Spring AI. Solo `OpenAICompatibleProvider` lo importa.
-- Para añadir un proveedor con API propia (por ejemplo, la API nativa de Anthropic) hay que implementar
+- Para añadir un proveedor con API propia (por ejemplo, la API nativa de Gemini) hay que implementar
   `AIProvider` como bean y referenciarlo por su nombre en `ai.provider.primary` o `ai.provider.fallback`.
 - **El fallback vive en `AIClient`**:
 

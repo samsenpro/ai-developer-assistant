@@ -26,7 +26,7 @@ public class SecretRedactor {
     private static final List<Pattern> TOKENS = List.of(
             // JWT
             Pattern.compile("\\beyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}"),
-            // Claves estilo OpenAI / Anthropic
+            // Claves con prefijo sk- (OpenAI y otros proveedores)
             Pattern.compile("\\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}"),
             // AWS access key ID
             Pattern.compile("\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"),
