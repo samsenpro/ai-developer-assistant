@@ -220,7 +220,7 @@ public class AnalysisService {
         List<String> untrustedTexts = Stream.of(sanitized.instructions(), sanitized.error(), sanitized.errorContext(),
                 sanitized.stackTrace()).filter(Objects::nonNull).toList();
         BuiltContext context = files.isEmpty() ? null
-                : contextBuilder.build(project.getId(), files, sanitized.includeRelatedFiles(), handler.supportsSplit(),
+                : contextBuilder.build(command.projectId(), files, sanitized.includeRelatedFiles(), handler.supportsSplit(),
                 untrustedTexts);
         String boundary = context != null ? context.boundary() : contextBuilder.boundaryFor(untrustedTexts);
         if (context != null) {
@@ -392,7 +392,7 @@ public class AnalysisService {
                     "At most %d files can be selected per request".formatted(contextProperties.maxFilesPerRequest()),
                     Map.of("maxFilesPerRequest", contextProperties.maxFilesPerRequest()));
         }
-        List<FileSnapshot> files = fileService.loadSelected(project.getId(), command.fileIds());
+        List<FileSnapshot> files = fileService.loadSelected(command.projectId(), command.fileIds());
         if (command.language() != null) {
             List<String> mismatched = files.stream().filter(file -> file.language() != command.language())
                     .map(FileSnapshot::path).toList();

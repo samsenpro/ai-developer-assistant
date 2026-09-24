@@ -35,13 +35,21 @@ public class AIProviderConfig {
     private static final Logger log = LoggerFactory.getLogger(AIProviderConfig.class);
     private static final int MAX_ERROR_BODY_CHARS = 300;
 
-    /** Aplica a los RestClient.Builder de Spring Boot, que es el que usa el cliente de OpenAI de Spring AI. */
+    /**
+     * Aplica a los RestClient.Builder de Spring Boot, que es el que usa el cliente de OpenAI de Spring AI.
+     * <p>
+     * Se fuerza HTTP/1.1: el cliente del JDK intenta por defecto actualizar a HTTP/2 en claro (h2c)
+     * sobre http://, algo que muchos servidores compatibles y proxies no aceptan y cortan la conexión.
+     */
     @Bean
     RestClientCustomizer aiProviderTimeouts(AIProviderProperties properties) {
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(properties.connectTimeout())
                 .withReadTimeout(properties.timeout());
-        return builder -> builder.requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings));
+        var factory = ClientHttpRequestFactoryBuilder.jdk()
+                .withHttpClientCustomizer(client -> client.version(java.net.http.HttpClient.Version.HTTP_1_1))
+                .build(settings);
+        return builder -> builder.requestFactory(factory);
     }
 
     /**
