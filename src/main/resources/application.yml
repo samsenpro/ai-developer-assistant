@@ -1,0 +1,179 @@
+spring:
+  application:
+    name: ai-developer-assistant
+  threads:
+    virtual:
+      # Las peticiones síncronas esperan al LLM durante segundos: con hilos virtuales esa espera
+      # no bloquea hilos de plataforma de Tomcat
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5445/ai_assistant}
+    username: ${DB_USERNAME:ai_assistant}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: ${FILE_MAX_SIZE:100KB}
+      max-request-size: 1MB
+  cache:
+    cache-names: analysis-results
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=1h
+  ai:
+    # Configuración del cliente compatible con OpenAI de Spring AI. Solo se usa el modelo de chat.
+    openai:
+      api-key: ${AI_API_KEY:}
+      base-url: ${AI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${AI_MODEL:gpt-4o-mini}
+    model:
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+    # Los reintentos y timeouts no se configuran aquí: los define la aplicación en AIProviderConfig
+    # (ai.provider.*), que sustituye a los beans de Spring AI
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+    include-message: never
+
+app:
+  version: @project.version@
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION_SECONDS:3600}
+    issuer: ai-developer-assistant
+  http:
+    max-request-size: 1MB
+  files:
+    max-size: ${FILE_MAX_SIZE:100KB}
+    max-files-per-project: ${MAX_FILES_PER_PROJECT:200}
+
+ai:
+  provider:
+    # Nombre del proveedor principal y, opcionalmente, del de fallback (ver AIProvider)
+    primary: ${AI_PROVIDER_NAME:openai}
+    fallback: ${AI_FALLBACK_PROVIDER:}
+    timeout: ${AI_TIMEOUT:60s}
+    connect-timeout: 5s
+    max-attempts: ${AI_MAX_ATTEMPTS:2}
+    structured-attempts: ${AI_STRUCTURED_ATTEMPTS:2}
+    openai:
+      name: ${AI_PROVIDER_NAME:openai}
+      model: ${AI_MODEL:gpt-4o-mini}
+      temperature: ${AI_TEMPERATURE:0.2}
+      json-mode: ${AI_JSON_MODE:true}
+
+  context:
+    max-source-tokens: ${AI_MAX_SOURCE_TOKENS:12000}
+    max-prompt-tokens: ${AI_MAX_PROMPT_TOKENS:16000}
+    chars-per-token: 3.5
+    max-files-per-request: ${AI_MAX_FILES_PER_REQUEST:10}
+    max-related-files: 5
+    related-depth: 2
+    max-chunks: 4
+    redact-secrets: true
+
+  analysis:
+    cache-ttl: ${AI_CACHE_TTL:7d}
+    default-max-output-tokens: 2048
+    max-output-tokens:
+      EXPLAIN: 2048
+      REVIEW: 3072
+      IMPROVE: 4096
+      GENERATE_TESTS: 4096
+      GENERATE_DOCUMENTATION: 4096
+      ANALYZE_ERROR: 1536
+      CHAT: 1536
+
+  conversation:
+    max-messages: 200
+    max-message-length: 4000
+    history-token-budget: 3000
+    max-history-messages: 20
+    max-files: 10
+
+  jobs:
+    core-pool-size: 2
+    max-pool-size: 4
+    queue-capacity: 50
+
+  limits:
+    rate:
+      # Ráfagas por usuario y operación
+      defaults:
+        requests: ${AI_RATE_LIMIT_REQUESTS:10}
+        period: ${AI_RATE_LIMIT_PERIOD:1m}
+      operations:
+        REVIEW: { requests: 5, period: 1m }
+        IMPROVE: { requests: 5, period: 1m }
+        GENERATE_TESTS: { requests: 5, period: 1m }
+        GENERATE_DOCUMENTATION: { requests: 5, period: 1m }
+        CHAT: { requests: 20, period: 1m }
+    daily:
+      tokens-per-user: ${AI_DAILY_TOKENS_PER_USER:200000}
+      requests-per-user: ${AI_DAILY_REQUESTS_PER_USER:300}
+      requests-per-operation:
+        IMPROVE: 50
+        GENERATE_TESTS: 50
+    max-pending-jobs: 5
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}
+    path: /swagger-ui.html
+    operations-sorter: method
+  # Cada endpoint declara lo que devuelve; sin esto springdoc añadiría a todos cada respuesta del
+  # manejador global de errores
+  override-with-generic-response: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Lista cerrada: nada de env, beans, heapdump o configprops expuestos por accidente
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: @project.version@
+
+logging:
+  pattern:
+    # El correlation ID aparece en cada línea de log (vacío fuera de una petición)
+    correlation: "[%X{correlationId:-}] "
+  level:
+    # El cliente HTTP de Spring AI registra cuerpos de petición a nivel DEBUG: nunca en producción
+    org.springframework.ai: WARN
