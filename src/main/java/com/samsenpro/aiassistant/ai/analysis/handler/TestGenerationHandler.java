@@ -65,7 +65,7 @@ public class TestGenerationHandler implements OperationHandler<TestGenerationRes
     public TestGenerationResult postProcess(TestGenerationResult result, OperationInput input, List<String> warnings) {
         List<TestGenerationResult.GeneratedTest> tests = result.tests().stream()
                 .map(test -> new TestGenerationResult.GeneratedTest(test.filename(),
-                        GeneratedCode.stripLineNumbers(test.content()), test.description()))
+                        GeneratedCode.cleanCode(test.content()), test.description()))
                 .toList();
         return new TestGenerationResult(noneToNull(result.detectedFramework()), result.testFramework(),
                 noneToNull(result.mockingLibrary()), tests, result.testedBehaviors(), result.assumptions());

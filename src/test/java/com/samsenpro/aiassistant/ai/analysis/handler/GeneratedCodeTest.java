@@ -16,6 +16,15 @@ class GeneratedCodeTest {
     }
 
     @Test
+    void removesAMarkdownFenceAroundTheWholeCode() {
+        assertThat(GeneratedCode.cleanCode("```java\nclass A {}\n```")).isEqualTo("class A {}\n");
+        assertThat(GeneratedCode.cleanCode("```\n  1 | class A {}\n```\n")).isEqualTo("class A {}\n");
+        // Varios bloques o texto alrededor: no es un único bloque, se deja como está
+        String mixed = "```java\na\n```\ntext\n```java\nb\n```";
+        assertThat(GeneratedCode.cleanCode(mixed)).isEqualTo(mixed);
+    }
+
+    @Test
     void leavesCodeWithoutLineNumbersUntouched() {
         String code = "int total = a | b;\nString s = \"1 | 2\";\n";
 

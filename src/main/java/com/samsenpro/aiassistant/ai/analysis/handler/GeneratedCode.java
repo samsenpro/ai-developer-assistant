@@ -16,6 +16,31 @@ final class GeneratedCode {
     }
 
     /**
+     * Limpia el código generado: quita el bloque de Markdown que lo envuelve (```java ... ```) y los
+     * prefijos de número de línea copiados del prompt.
+     */
+    static String cleanCode(String content) {
+        return stripLineNumbers(stripCodeFence(content));
+    }
+
+    /** Si todo el contenido es un único bloque de código Markdown, devuelve solo su interior. */
+    static String stripCodeFence(String content) {
+        if (content == null) {
+            return null;
+        }
+        String trimmed = content.strip();
+        if (!trimmed.startsWith("```") || !trimmed.endsWith("```") || trimmed.length() < 6) {
+            return content;
+        }
+        int firstNewline = trimmed.indexOf('\n');
+        int closing = trimmed.lastIndexOf("```");
+        if (firstNewline < 0 || closing <= firstNewline || trimmed.substring(3, closing).contains("```")) {
+            return content;
+        }
+        return trimmed.substring(firstNewline + 1, closing).stripTrailing() + "\n";
+    }
+
+    /**
      * Error frecuente de los modelos: copiar el prefijo de número de línea del prompt ("  42 | ")
      * en el código generado. Si todas las líneas lo llevan, se elimina.
      */

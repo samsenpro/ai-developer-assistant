@@ -76,7 +76,9 @@ public class DocumentationHandler implements OperationHandler<DocumentationResul
                 .map(document -> new DocumentationResult.Document(
                         document.file() == null ? null
                                 : GeneratedCode.resolvePath(document.file(), known).orElse(document.file()),
-                        document.format(), GeneratedCode.stripLineNumbers(document.content())))
+                        document.format(), "markdown".equalsIgnoreCase(document.format())
+                                ? GeneratedCode.stripLineNumbers(document.content())
+                                : GeneratedCode.cleanCode(document.content())))
                 .toList();
         return new DocumentationResult(result.title(), result.summary(), documents);
     }

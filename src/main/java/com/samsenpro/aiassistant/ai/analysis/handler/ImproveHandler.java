@@ -54,7 +54,7 @@ public class ImproveHandler implements OperationHandler<ImprovementResult> {
         List<ImprovementResult.ImprovedFile> improved = result.improvedCode().stream()
                 .map(file -> new ImprovementResult.ImprovedFile(
                         GeneratedCode.resolvePath(file.file(), known).orElse(file.file()),
-                        GeneratedCode.stripLineNumbers(file.content())))
+                        GeneratedCode.cleanCode(file.content())))
                 .toList();
         long newFiles = improved.stream().filter(file -> !known.containsKey(file.file())).count();
         if (newFiles > 0) {
