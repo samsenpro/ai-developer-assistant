@@ -1,0 +1,21 @@
+# Perfil de los tests de integración: PostgreSQL real (Testcontainers) y proveedor LLM simulado.
+app:
+  jwt:
+    secret: integration-test-secret-integration-test-secret
+
+spring:
+  ai:
+    openai:
+      # El cliente de Spring AI exige una API key aunque nunca se use: los tests no llaman a ningún proveedor real
+      api-key: test-key-not-used
+
+ai:
+  provider:
+    # Proveedor programable registrado por TestAIProviderConfig
+    primary: scripted
+  limits:
+    rate:
+      operations:
+        REVIEW: { requests: 50, period: 1m }
+        # Límite bajo para probar el rate limiting sin interferir con el resto de tests
+        GENERATE_DOCUMENTATION: { requests: 2, period: 1h }
